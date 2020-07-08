@@ -5,10 +5,9 @@ import urllib.parse
 import cgi
 
 
-current_url = "http://fap.fpt.edu.vn/"
+referer = "http://fap.fpt.edu.vn/"
 host = "fap.fpt.edu.vn"
 origin = "http://fap.fpt.edu.vn"
-referer = "http://fap.fpt.edu.vn/"
 
 class RedirectHandler(http.server.BaseHTTPRequestHandler):
     def process_request_headers(self):
@@ -26,33 +25,28 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
             request_headers[h] = self.headers.get(h)
         return request_headers
 
-    def process_response(self, r, add_input_field=False):
+    def process_response(self, r):
         self.send_response(r.status_code)
         for key in r.headers.keys():
             if key.lower() == 'Content-Encoding'.lower():
                 continue
+            if key.lower() == 'Content-Length'.lower():
+                continue
             self.send_header(key, r.headers.get(key))
         self.end_headers()
-        if add_input_field:
-            with open("index.html", "r", encoding="utf-8") as f:
-                self.wfile.write(f.read().encode())
         self.wfile.write(r.content)
 
     def do_GET(self):
         parsed_path = urllib.parse.urlparse(self.path)
         r = requests.get(
-            url="{current_url}{uri.path}?{uri.params}".format(
-                current_url=current_url, uri=parsed_path
+            url="{origin}{uri.path}?{uri.params}".format(
+                origin=origin, uri=parsed_path
             ),
             headers=self.process_request_headers()
         )
-        add_input_field = True
-        if parsed_path.path.endswith(".js") or parsed_path.path.endswith(".css"):
-            add_input_field = False
-        self.process_response(r, add_input_field=add_input_field)
+        self.process_response(r)
 
     def do_POST(self):
-        global current_url
         global host
         global origin
         global referer
@@ -73,21 +67,20 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
                 uri=parsed_path,
                 host=host
             )
-            current_url = "{uri.scheme}://{host}/".format(
-                uri=parsed_path,
-                host=host
-            )
             self.send_response(301)
             self.send_header(
                 "Location", "{uri.path}?{uri.params}".format(uri=parsed_path)
             )
             self.end_headers()
         else:
+            content_len = int(self.headers.get('Content-Length'))
+            post_body = self.rfile.read(content_len)
             r = requests.post(
-                url="{current_url}{uri.path}?{uri.params}".format(
-                    current_url=current_url, uri=parsed_path
+                url="{origin}{uri.path}?{uri.params}".format(
+                    origin=origin, uri=parsed_path
                 ),
-                headers=self.process_request_headers()
+                headers=self.process_request_headers(),
+                data=post_body
             )
             self.process_response(r)
 
@@ -95,7 +88,7 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
     #     parsed_path = urllib.parse.urlparse(self.path)
     #     r = requests.head(
     #         url="{host}{uri.path}?{uri.params}".format(
-    #             host=current_url, uri=parsed_path
+    #             host=referer, uri=parsed_path
     #         ),
     #         headers=self.process_request_headers()
     #     )
@@ -105,7 +98,7 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
     #     parsed_path = urllib.parse.urlparse(self.path)
     #     r = requests.put(
     #         url="{host}{uri.path}?{uri.params}".format(
-    #             host=current_url, uri=parsed_path
+    #             host=referer, uri=parsed_path
     #         ),
     #         headers=self.process_request_headers()
     #     )
@@ -115,7 +108,7 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
     #     parsed_path = urllib.parse.urlparse(self.path)
     #     r = requests.delete(
     #         url="{host}{uri.path}?{uri.params}".format(
-    #             host=current_url, uri=parsed_path
+    #             host=referer, uri=parsed_path
     #         ),
     #         headers=self.process_request_headers()
     #     )
@@ -125,7 +118,7 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
     #     parsed_path = urllib.parse.urlparse(self.path)
     #     r = requests.options(
     #         url="{host}{uri.path}?{uri.params}".format(
-    #             host=current_url, uri=parsed_path
+    #             host=referer, uri=parsed_path
     #         ),
     #         headers=self.process_request_headers()
     #     )
@@ -135,7 +128,7 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
     #     parsed_path = urllib.parse.urlparse(self.path)
     #     r = requests.patch(
     #         url="{host}{uri.path}?{uri.params}".format(
-    #             host=current_url, uri=parsed_path
+    #             host=referer, uri=parsed_path
     #         ),
     #         headers=self.process_request_headers()
     #     )
